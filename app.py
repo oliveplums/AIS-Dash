@@ -182,11 +182,8 @@ if st.button("Fetch Data"):
             st.error(f"Unexpected error during API call: {e}")
 ##############Speed and Activity Summary#######################
         # Time difference between points
-        diff=[]
-        for n in range(len(df_ais['DateTime'])-1):
-            diff.append(df_ais['DateTime'][n+1]-df_ais['DateTime'][n])
-        diff=[timedelta(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0, hours=0, weeks=0)] + diff
-        df_ais['Diff'] = diff
+
+        df_ais['Diff'] = df_ais['DateTime'].diff().fillna(pd.Timedelta(0))
 
         
         # Distance in nautical miles (speed in knots * hours)
@@ -325,5 +322,75 @@ if st.button("Fetch Data"):
                           height=300   # Optionally set the height of the figure
         )
         st.subheader("Speed Timeline")
+        st.plotly_chart(fig, use_container_width=True)
+
+########### Speed Histogram #########################
+
+
+        # Assuming 'df' is already defined and loaded with the relevant data
+        #df['Diff'] = df['Diff'].dt.total_seconds()
+        
+        # Filter speeds greater than or equal to 5 knots and round them
+        df['histspeed'] = round(df['speed'], 5)
+        dfabove5 = df[df['histspeed'] >= 5]
+        
+        # Create the histogram
+        histfig = px.histogram(dfabove5, x="histspeed", histnorm='percent',nbins=round(dfabove5['histspeed'].max())+1, 
+                           labels={"histspeed": "Speed / Knots", "percent": "Percentage(%)"},
+                           title="Speed Histogram", color_discrete_sequence=['#3273a8'])
+        
+        histfig.update_layout(template='plotly_white', autosize=False, bargap=0.30,
+                        yaxis_title="Percentage (%)",
+                          font=dict(color='grey',size=14),  # Set the font color to black and size to 12
+                          width=400,  # Set the width of the histfigure to make the graph longer
+                          height=250   # Optionally set the height of the histfigure
+        )
+
+
+        st.subheader("Speed Histogram")
+        st.plotly_chart(fig, use_container_width=True)
+
+
+########## Fouling Challenge #############
+
+        # Define x-axis labels
+        x = ['null','VL', 'L', 'M', 'H', 'VH']
+        
+        # Calculate the percentage weight for each risk level
+        df['weight'] = (100 * df['Diff'] / df['Diff'].sum())
+        
+        # Calculate the sum of weights for each risk level
+        y = [df.loc[df["risk"] == label, "weight"].sum() for label in x]
+        
+        # Define colors for each risk level
+        colours = {'null':'grey','VL': 'darkgreen', 'L': '#37ff30', 'M': 'yellow', 'H': 'orange', 'VH': 'red'}
+        
+        # Create the bar plot with custom colors and outlined bars
+        figf = go.Figure(data=[go.Bar(x=x, y=y, 
+                                     marker_color=[colours[label] for label in x], 
+                                     marker_line_color='black',  # Add black outline
+                                     marker_line_width=1)])  # Adjust the width of the outline if needed
+        
+        # Add value labels above each bar
+        for i, val in enumerate(y):
+            figf.add_annotation(
+                x=x[i],
+                y=val,
+                text=f'{int(val)}',
+                showarrow=False,
+                font=dict(color='black', size=13),
+                yshift=10
+            )
+        
+        # Customize plot title and labels
+        figf.update_layout(title="FOULING CHALLENGE", xaxis_title='Fouling Challenge', 
+                          template='plotly_white', autosize=False, bargap=0.30,
+                          yaxis_title="Percentage (%)",
+                          font=dict(color='grey',size=14),  # Set the font color to black and size to 12
+                          width=500,  # Set the width of the figure to make the graph longer
+                          height=300   # Optionally set the height of the figure
+        )
+
+        st.subheader("Fouling Challenge")
         st.plotly_chart(fig, use_container_width=True)
 
