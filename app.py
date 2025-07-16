@@ -133,3 +133,26 @@ if st.button("Fetch Data"):
 
     except Exception as e:
         st.error(f"SQLite DB error: {e}")
+
+# ---- LME Shapefile and Excel Info ----
+import os  # Ensure os is imported
+
+LMEPolygon = "LMEPolygon1/LMEs66.shp"  # Use forward slashes or raw string
+LMEPolygon_path = os.path.abspath(LMEPolygon)
+
+try:
+    LME_sf = gpd.read_file(LMEPolygon_path)
+    LME_sf = LME_sf.to_crs(epsg=4326)
+
+    LME = pd.read_excel("LME values.xlsx")
+    LME.columns = LME.iloc[0]
+    LME = LME[1:].reset_index(drop=True)
+
+    st.subheader("🌍 LME Data Preview")
+    st.dataframe(LME.head())
+
+    st.subheader("🗺️ LME Polygon Sample")
+    st.map(LME_sf[['geometry']].set_geometry('geometry'))
+
+except Exception as e:
+    st.error(f"Error loading LME data: {e}")
