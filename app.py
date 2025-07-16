@@ -1,14 +1,11 @@
 import streamlit as st
-import requests
 import pandas as pd
-import geopandas as gpd
-import urllib3
-import os
-import sqlite3
+import requests
 from datetime import datetime
 from typing import Sequence
-from shapely.geometry import Point
-from math import radians, cos, sin, asin, sqrt
+import urllib3
+import sqlite3
+import geopandas as gpd
 import plotly.express as px
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -80,81 +77,45 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
         df_combined = pd.concat([df_combined, df])
 
     df_cleaned = df_combined.drop_duplicates(subset='DateTime').reset_index(drop=True)
+    return df_cleaned
 
-    df1 = df_cleaned[df_cleaned["speed"] < 24].reset_index(drop=True)
-    df = df1.drop_duplicates(subset='DateTime')
-    df = df.sort_values('DateTime').reset_index(drop=True)
+# Helper: Detect stationary periods (speed ≤ 0.3 knots for > 12 hours)
+def detect_stationary_periods(ais_df):
+    ais_df = ais_df.sort_values('DateTime').reset_index(drop=True)
+    ais_df['is_stationary'] = ais_df['speed'] <= 0.3
 
-    def haversine(lon1, lat1, lon2, lat2):
-        # convert decimal degrees to radians 
-        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
-        # haversine formula 
-        dlon = lon2 - lon1 
-        dlat = lat2 - lat1 
-        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-        c = 2 * asin(sqrt(a)) 
-        r = 3440.065  # Radius of earth in nautical miles
-        return c * r
-
-    # Sort by DateTime
-    df_cleaned = df_cleaned.sort_values('DateTime').reset_index(drop=True)
-    
-    # Calculate distances between points
-    distances = [0]  # first point has no previous
-    for i in range(1, len(df_cleaned)):
-        lon1, lat1 = df_cleaned.loc[i-1, ['longitude', 'latitude']]
-        lon2, lat2 = df_cleaned.loc[i, ['longitude', 'latitude']]
-        dist = haversine(lon1, lat1, lon2, lat2)
-        distances.append(dist)
-    df_cleaned['dist_nm'] = distances
-
-    # Extract month abbreviation for grouping
-    df_cleaned['month'] = df_cleaned['DateTime'].dt.strftime('%b')
-
-    # Group by month and calculate summary metrics
-    summary = df_cleaned.groupby('month').apply(lambda x: pd.Series({
-        'Sea Miles': x['dist_nm'].sum(),
-        'Pct > 3 knots': (x['speed'] > 3).mean() * 100,
-        'Most Common Speed': x['speed'].mode().iloc[0] if not x['speed'].mode().empty else np.nan
-    })).reset_index()
-
-    # Add total sea miles
-    total_sea_miles = df_cleaned['dist_nm'].sum()
-
-    st.subheader("📊 Monthly AIS Summary")
-    st.dataframe(summary)
-
-    st.write(f"**Total Sea Miles Traveled:** {total_sea_miles:.2f} nm")
-
-    return df
-
-# ---- Stationary periods detection function (simplified) ----
-def detect_stationary_periods(df, speed_threshold=0.3, min_duration_hours=12):
-    df = df.sort_values('DateTime').reset_index(drop=True)
-    df['stationary'] = df['speed'] <= speed_threshold
-
-    stationary_periods = []
+    periods = []
     start_idx = None
 
-    for i, stationary in enumerate(df['stationary']):
+    for i, stationary in enumerate(ais_df['is_stationary']):
         if stationary and start_idx is None:
             start_idx = i
         elif not stationary and start_idx is not None:
-            duration = (df.loc[i-1, 'DateTime'] - df.loc[start_idx, 'DateTime']).total_seconds() / 3600
-            if duration >= min_duration_hours:
-                stationary_periods.append((df.loc[start_idx, 'DateTime'], df.loc[i-1, 'DateTime'], duration))
+            duration = (ais_df.loc[i-1, 'DateTime'] - ais_df.loc[start_idx, 'DateTime']).total_seconds() / 3600
+            if duration >= 12:
+                periods.append({
+                    'Start': ais_df.loc[start_idx, 'DateTime'],
+                    'End': ais_df.loc[i-1, 'DateTime'],
+                    'DurationHours': duration,
+                    'Latitude': ais_df.loc[start_idx:i-1, 'latitude'].mean(),
+                    'Longitude': ais_df.loc[start_idx:i-1, 'longitude'].mean()
+                })
             start_idx = None
-
-    # Catch if last period is stationary and still ongoing
+    # Check if last period is still ongoing
     if start_idx is not None:
-        duration = (df.loc[len(df)-1, 'DateTime'] - df.loc[start_idx, 'DateTime']).total_seconds() / 3600
-        if duration >= min_duration_hours:
-            stationary_periods.append((df.loc[start_idx, 'DateTime'], df.loc[len(df)-1, 'DateTime'], duration))
+        duration = (ais_df.loc[len(ais_df)-1, 'DateTime'] - ais_df.loc[start_idx, 'DateTime']).total_seconds() / 3600
+        if duration >= 12:
+            periods.append({
+                'Start': ais_df.loc[start_idx, 'DateTime'],
+                'End': ais_df.loc[len(ais_df)-1, 'DateTime'],
+                'DurationHours': duration,
+                'Latitude': ais_df.loc[start_idx:, 'latitude'].mean(),
+                'Longitude': ais_df.loc[start_idx:, 'longitude'].mean()
+            })
 
-    return pd.DataFrame(stationary_periods, columns=['Start', 'End', 'DurationHours'])
+    return pd.DataFrame(periods)
 
-# ---- Streamlit UI ----
-
+# --- Streamlit UI ---
 st.title("🚢 Combined Voyage and AIS Dashboard")
 
 username = st.secrets["username"]
@@ -215,21 +176,21 @@ if st.button("Fetch Data"):
             except Exception as db_err:
                 st.error(f"SQLite error: {db_err}")
 
-            # Load LME polygons and risk data (optional, add your paths here)
+            # Load LME polygons and risk data (optional)
             try:
                 LMEPolygon = "LMEPolygon1/LMEs66.shp"  # fix path if needed
                 LME_sf = gpd.read_file(LMEPolygon).to_crs(epsg=4326)
                 st.subheader("🌍 LME Polygons loaded")
                 st.dataframe(LME_sf[['LME_NAME']].head())
 
-                excel_path = "LMEPolygon1\LME values.xlsx"
+                excel_path = "LMEPolygon1/LME values.xlsx"
                 LME = pd.read_excel(excel_path)
                 LME.columns = LME.iloc[0]
                 LME = LME[1:].reset_index(drop=True)
                 st.write("LME risk values loaded")
                 st.dataframe(LME.head())
 
-                # Here you can integrate the LME risk assignment to ais_df, similar to your previous code
+                # Add your risk assignment logic here...
 
             except Exception as lme_err:
                 st.error(f"Error loading LME data: {lme_err}")
@@ -238,7 +199,4 @@ if st.button("Fetch Data"):
             st.error(f"HTTP error: {e}")
         except Exception as e:
             st.error(f"Unexpected error: {e}")
-
-        except Exception as e:
-            st.error(f"An unexpected error occurred: {e}")
 
