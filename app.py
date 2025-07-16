@@ -79,41 +79,6 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
     df_cleaned = df_combined.drop_duplicates(subset='DateTime').reset_index(drop=True)
     return df_cleaned
 
-# Helper: Detect stationary periods (speed ≤ 0.3 knots for > 12 hours)
-def detect_stationary_periods(ais_df):
-    ais_df = ais_df.sort_values('DateTime').reset_index(drop=True)
-    ais_df['is_stationary'] = ais_df['speed'] <= 0.3
-
-    periods = []
-    start_idx = None
-
-    for i, stationary in enumerate(ais_df['is_stationary']):
-        if stationary and start_idx is None:
-            start_idx = i
-        elif not stationary and start_idx is not None:
-            duration = (ais_df.loc[i-1, 'DateTime'] - ais_df.loc[start_idx, 'DateTime']).total_seconds() / 3600
-            if duration >= 12:
-                periods.append({
-                    'Start': ais_df.loc[start_idx, 'DateTime'],
-                    'End': ais_df.loc[i-1, 'DateTime'],
-                    'DurationHours': duration,
-                    'Latitude': ais_df.loc[start_idx:i-1, 'latitude'].mean(),
-                    'Longitude': ais_df.loc[start_idx:i-1, 'longitude'].mean()
-                })
-            start_idx = None
-    # Check if last period is still ongoing
-    if start_idx is not None:
-        duration = (ais_df.loc[len(ais_df)-1, 'DateTime'] - ais_df.loc[start_idx, 'DateTime']).total_seconds() / 3600
-        if duration >= 12:
-            periods.append({
-                'Start': ais_df.loc[start_idx, 'DateTime'],
-                'End': ais_df.loc[len(ais_df)-1, 'DateTime'],
-                'DurationHours': duration,
-                'Latitude': ais_df.loc[start_idx:, 'latitude'].mean(),
-                'Longitude': ais_df.loc[start_idx:, 'longitude'].mean()
-            })
-
-    return pd.DataFrame(periods)
 
 # --- Streamlit UI ---
 st.title("🚢 Combined Voyage and AIS Dashboard")
@@ -141,59 +106,6 @@ if st.button("Fetch Data"):
                 st.success("AIS Data fetched successfully!")
                 st.subheader("AIS Positions")
                 st.dataframe(ais_df)
-                st.map(ais_df.rename(columns={"latitude": "lat", "longitude": "lon"}))
-
-                # Detect stationary periods
-                stationary_df = detect_stationary_periods(ais_df)
-                st.subheader("Stationary Periods (>12 hours, speed ≤ 0.3 knots)")
-                st.dataframe(stationary_df)
-
-                # Plot speed histogram
-                fig_speed = px.histogram(ais_df, x='speed', nbins=50, title='Speed Distribution')
-                st.plotly_chart(fig_speed)
-
-                # Plot stationary periods duration histogram
-                fig_stationary = px.histogram(stationary_df, x='DurationHours', nbins=30, title='Stationary Period Durations (hours)')
-                st.plotly_chart(fig_stationary)
-
-                # Optional: save stationary periods to Excel
-                stationary_df.to_excel("stationary_periods.xlsx", index=False)
-                st.markdown("Stationary periods exported as `stationary_periods.xlsx`.")
-
-            # Query local vessel info (SQLite)
-            try:
-                imo_number = imo_list[0]
-                conn = sqlite3.connect("my_sqlite.db")
-                query = "SELECT * FROM vesselInfo WHERE LRIMOShipNo = ?"
-                dfVesselInfo = pd.read_sql(query, conn, params=(imo_number,))
-                conn.close()
-
-                if not dfVesselInfo.empty:
-                    st.subheader("📄 Vessel Info (from local DB)")
-                    st.dataframe(dfVesselInfo)
-                else:
-                    st.info("No vessel info found in the local database.")
-            except Exception as db_err:
-                st.error(f"SQLite error: {db_err}")
-
-            # Load LME polygons and risk data (optional)
-            try:
-                LMEPolygon = "LMEPolygon1/LMEs66.shp"  # fix path if needed
-                LME_sf = gpd.read_file(LMEPolygon).to_crs(epsg=4326)
-                st.subheader("🌍 LME Polygons loaded")
-                st.dataframe(LME_sf[['LME_NAME']].head())
-
-                excel_path = "LMEPolygon1/LME values.xlsx"
-                LME = pd.read_excel(excel_path)
-                LME.columns = LME.iloc[0]
-                LME = LME[1:].reset_index(drop=True)
-                st.write("LME risk values loaded")
-                st.dataframe(LME.head())
-
-                # Add your risk assignment logic here...
-
-            except Exception as lme_err:
-                st.error(f"Error loading LME data: {lme_err}")
 
         except requests.exceptions.HTTPError as e:
             st.error(f"HTTP error: {e}")
