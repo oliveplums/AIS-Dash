@@ -87,6 +87,7 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
 # --- Streamlit UI ---
 st.title("🚢 Combined Voyage and AIS Dashboard")
 
+
 username = st.secrets["username"]
 password = st.secrets["password"]
 
