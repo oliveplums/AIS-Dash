@@ -78,6 +78,12 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
         df_combined = pd.concat([df_combined, df])
 
     df_cleaned = df_combined.drop_duplicates(subset='DateTime').reset_index(drop=True)
+    df1=df_cleaned[df_cleaned["speed"]<24].reset_index()
+    df=df1
+    df=df.drop_duplicates(subset='DateTime')
+    df = df.sort_values('DateTime')
+    df=df.reset_index(drop=True)    
+    
     return df_cleaned
 
 
@@ -99,20 +105,13 @@ if st.button("Fetch Data"):
             voyage_data = get_voyage_history(username, password, imo_list, start_date, end_date)
             timestamp_changes = detect_mmsi_changes(voyage_data, end_date.isoformat())
 
-            ais_df = fetch_and_combine_ais(
+            df = fetch_and_combine_ais(
                 username, password,
                 timestamp_changes,
                 start_date.isoformat(),
                 end_date.isoformat(),
                 sixhourly
             )
-
-            if ais_df.empty:
-                st.warning("No AIS position data found for the selected criteria.")
-            else:
-                st.success("AIS Data fetched successfully!")
-                st.subheader("AIS Positions")
-                st.dataframe(ais_df)
 
         except requests.exceptions.HTTPError as e:
             st.error(f"HTTP error: {e}")
@@ -144,4 +143,36 @@ LEM_gsd_new = LME_sf.to_crs(epsg=4326)
 LME = pd.read_excel("LME values.xlsx")
 LME.columns = LME.iloc[0]
 LME = LME[1:].reset_index(drop=True)
+
+AIS_long_lat = df[['longitude','latitude']]
+AIS_long_lat.columns = ['Longitude','Latitude']
+points_cords = [Point(xy) for xy in zip(AIS_long_lat.Longitude,AIS_long_lat.Latitude)]
+Route = gpd.GeoDataFrame(AIS_long_lat, geometry=points_cords,crs='EPSG:4326')
+
+Route['ID'] = a
+Route['Datetime'] = df['DateTime']
+result = pd.merge(Route, LME,how="left",on="ID")
+result['months'] = result['Datetime'].apply(lambda x:x.strftime('%b'))
+b = [0]*len(Route['geometry'])
+Winter = ['Nov','Dec','Jan']
+Spring = ['Feb','Mar','Apr']
+Summer = ['May','Jun','Jul']
+Autumn = ['Aug','Sep','Oct']
+for i in range(len(result['geometry'])):
+    if result['months'][i] in Winter:
+        b[i] = result['Nov - Jan'][i]
+    elif result['months'][i] in Spring:
+        b[i] = result['Feb - Apr'][i]
+    elif result['months'][i] in Summer:
+        b[i] = result['May - Jul'][i]
+    else:
+        b[i] = result['Aug - Oct'][i]
+df['risk'] = b
+
+if df.empty:
+    st.warning("No AIS position data found for the selected criteria.")
+else:
+    st.success("AIS Data fetched successfully!")
+    st.subheader("AIS Positions")
+    st.dataframe(df)
 
