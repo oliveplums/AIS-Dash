@@ -8,6 +8,7 @@ import sqlite3
 import geopandas as gpd
 import plotly.express as px
 import os 
+from shapely.geometry import Point
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -78,12 +79,8 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
         df_combined = pd.concat([df_combined, df])
 
     df_cleaned = df_combined.drop_duplicates(subset='DateTime').reset_index(drop=True)
-    df1=df_cleaned[df_cleaned["speed"]<24].reset_index()
-    df=df1
-    df=df.drop_duplicates(subset='DateTime')
-    df = df.sort_values('DateTime')
-    df=df.reset_index(drop=True)    
-    
+    df = df_cleaned[df_cleaned["speed"] < 24]
+    df = df.drop_duplicates(subset='DateTime').sort_values('DateTime').reset_index(drop=True)
     return df_cleaned
 
 
@@ -149,7 +146,8 @@ AIS_long_lat.columns = ['Longitude','Latitude']
 points_cords = [Point(xy) for xy in zip(AIS_long_lat.Longitude,AIS_long_lat.Latitude)]
 Route = gpd.GeoDataFrame(AIS_long_lat, geometry=points_cords,crs='EPSG:4326')
 
-Route['ID'] = a
+Route = gpd.sjoin(Route, LEM_gsd_new[['geometry', 'LME_NUMBER']], how="left", predicate='within')
+Route['ID'] = Route['LME_NUMBER']
 Route['Datetime'] = df['DateTime']
 result = pd.merge(Route, LME,how="left",on="ID")
 result['months'] = result['Datetime'].apply(lambda x:x.strftime('%b'))
