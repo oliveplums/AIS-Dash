@@ -180,3 +180,36 @@ if st.button("Fetch Data"):
             st.error(f"HTTP error: {e}")
         except Exception as e:
             st.error(f"Unexpected error during API call: {e}")
+
+            # Time difference between points
+            diff = [timedelta(0)] + list(df_ais['DateTime'].diff().iloc[1:])
+            df_ais['Diff'] = diff
+            
+            # Distance in nautical miles (speed in knots * hours)
+            df_ais['distance'] = df_ais['speed'] * 0.0002777778 * df_ais['Diff'].dt.total_seconds()
+            
+            # Sea Miles per Month (SMM)
+            n = len(df_ais) - 1
+            total_time_months = (df_ais['DateTime'].iloc[n] - df_ais['DateTime'].iloc[0]).total_seconds() / 2.628e+6
+            smm = df_ais['distance'].sum() / total_time_months if total_time_months else 0
+            
+            # Total sea miles
+            total_miles = df_ais['distance'].sum()
+            
+            # % Activity above 10 knots
+            above_10 = df_ais[df_ais['speed'] > 10]
+            perc_above_10 = (above_10['Diff'].sum() / df_ais['Diff'].sum()) * 100 if df_ais['Diff'].sum().total_seconds() > 0 else 0
+            
+            # % Activity above 3 knots
+            above_3 = df_ais[df_ais['speed'] > 3]
+            perc_above_3 = (above_3['Diff'].sum() / df_ais['Diff'].sum()) * 100 if df_ais['Diff'].sum().total_seconds() > 0 else 0
+            
+            # Summary table
+            summary_df = pd.DataFrame({
+                "Metric": ["Sea Miles per Month (SMM)", "Total Sea Miles", "% Time > 10 knots", "% Time > 3 knots"],
+                "Value": [round(smm, 2), round(total_miles, 2), f"{perc_above_10:.2f}%", f"{perc_above_3:.2f}%"]
+            })
+            
+            st.subheader("📈 Speed and Activity Summary")
+            st.table(summary_df)
+
