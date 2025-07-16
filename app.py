@@ -85,7 +85,7 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
 
 
 # --- Streamlit UI ---
-st.title("🚢 Combined Voyage and AIS Dashboard")
+st.title("🚢 AIS Dashboard")
 
 
 username = st.secrets["username"]
@@ -114,8 +114,6 @@ if st.button("Fetch Data"):
                 st.warning("No AIS position data found for the selected criteria.")
             else:
                 st.success("AIS Data fetched successfully!")
-                st.subheader("AIS Positions")
-                st.dataframe(df_ais)
 
                 # ---- SQLite vessel info ----
                 try:
@@ -172,8 +170,6 @@ if st.button("Fetch Data"):
                             b[i] = result['Aug - Oct'][i]
 
                     df_ais['risk'] = b
-                    st.subheader("📊 AIS with Risk Scores")
-                    st.dataframe(df_ais)
 
                 except Exception as e:
                     st.error(f"Geospatial or Excel error: {e}")
