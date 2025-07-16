@@ -93,7 +93,7 @@ sixhourly = st.selectbox("6-Hourly data?", options=["true", "false"], index=0)
 
 if st.button("Fetch Data"):
     with st.spinner("Fetching voyage and AIS data..."):
-        try:
+                try:
             imo_list = list(map(int, imo_input.split(',')))
             voyage_data = get_voyage_history(username, password, imo_list, start_date, end_date)
             timestamp_changes = detect_mmsi_changes(voyage_data, end_date.isoformat())
@@ -106,26 +106,24 @@ if st.button("Fetch Data"):
                 st.success("AIS Data fetched successfully!")
                 st.subheader("AIS Positions")
                 st.dataframe(ais_df)
-                
+
+        except requests.exceptions.HTTPError as e:
+            st.error(f"HTTP error: {e}")
+        except Exception as e:
+            st.error(f"Unexpected error during API call: {e}")
+
         # ---- SQLite vessel info ----
         try:
             imo_for_db = imo_list[0]  # Use first IMO for SQLite query
-            cnn = sqlite3.connect("my_sqlite.db")
-            query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = '{imo_for_db}';"
-            dfVesselInfo = pd.read_sql(query, cnn)
-            cnn.close()
-        
+            with sqlite3.connect("my_sqlite.db") as cnn:
+                query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = '{imo_for_db}';"
+                dfVesselInfo = pd.read_sql(query, cnn)
+
             if not dfVesselInfo.empty:
                 st.subheader("📄 Vessel Information from Local DB")
                 st.dataframe(dfVesselInfo)
             else:
                 st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
-        
+
         except Exception as e:
             st.error(f"SQLite DB error: {e}")
-
-        except requests.exceptions.HTTPError as e:
-            st.error(f"HTTP error: {e}")
-        except Exception as e:
-            st.error(f"Unexpected error: {e}")
-
