@@ -1,4 +1,10 @@
 streamlit
-pandas
 requests
+pandas
 geopandas
+shapely
+fiona
+pyproj
+numpy
+plotly
+urllib3
