@@ -222,7 +222,7 @@ if st.button("Fetch Data"):
                 st.subheader("🌍 LME Polygons loaded")
                 st.dataframe(LME_sf[['LME_NAME']].head())
 
-                excel_path = r"C:\Users\palomboo\OneDrive - AkzoNobel\Template Automation Report\Intertrac Advance\LMEPolygon1\LME values.xlsx"
+                excel_path = "LMEPolygon1\LME values.xlsx"
                 LME = pd.read_excel(excel_path)
                 LME.columns = LME.iloc[0]
                 LME = LME[1:].reset_index(drop=True)
