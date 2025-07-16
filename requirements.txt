@@ -8,3 +8,4 @@ pyproj
 numpy
 plotly
 urllib3
+openpyxl
