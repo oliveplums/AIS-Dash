@@ -106,6 +106,23 @@ if st.button("Fetch Data"):
                 st.success("AIS Data fetched successfully!")
                 st.subheader("AIS Positions")
                 st.dataframe(ais_df)
+                
+        # ---- SQLite vessel info ----
+        try:
+            imo_for_db = imo_list[0]  # Use first IMO for SQLite query
+            cnn = sqlite3.connect("my_sqlite.db")
+            query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = '{imo_for_db}';"
+            dfVesselInfo = pd.read_sql(query, cnn)
+            cnn.close()
+        
+            if not dfVesselInfo.empty:
+                st.subheader("📄 Vessel Information from Local DB")
+                st.dataframe(dfVesselInfo)
+            else:
+                st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
+        
+        except Exception as e:
+            st.error(f"SQLite DB error: {e}")
 
         except requests.exceptions.HTTPError as e:
             st.error(f"HTTP error: {e}")
