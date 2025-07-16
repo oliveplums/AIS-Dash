@@ -199,21 +199,21 @@ if st.button("Fetch Data"):
                 stationary_df.to_excel("stationary_periods.xlsx", index=False)
                 st.markdown("Stationary periods exported as `stationary_periods.xlsx`.")
 
-            # # Query local vessel info (SQLite)
-            # try:
-            #     imo_number = imo_list[0]
-            #     conn = sqlite3.connect("AIS-Dash/my_sqlite.db")
-            #     query = "SELECT * FROM vesselInfo WHERE LRIMOShipNo = ?"
-            #     dfVesselInfo = pd.read_sql(query, conn, params=(imo_number,))
-            #     conn.close()
+            # Query local vessel info (SQLite)
+            try:
+                imo_number = imo_list[0]
+                conn = sqlite3.connect("my_sqlite.db")
+                query = "SELECT * FROM vesselInfo WHERE LRIMOShipNo = ?"
+                dfVesselInfo = pd.read_sql(query, conn, params=(imo_number,))
+                conn.close()
 
-            #     if not dfVesselInfo.empty:
-            #         st.subheader("📄 Vessel Info (from local DB)")
-            #         st.dataframe(dfVesselInfo)
-            #     else:
-            #         st.info("No vessel info found in the local database.")
-            # except Exception as db_err:
-            #     st.error(f"SQLite error: {db_err}")
+                if not dfVesselInfo.empty:
+                    st.subheader("📄 Vessel Info (from local DB)")
+                    st.dataframe(dfVesselInfo)
+                else:
+                    st.info("No vessel info found in the local database.")
+            except Exception as db_err:
+                st.error(f"SQLite error: {db_err}")
 
             # Load LME polygons and risk data (optional, add your paths here)
             try:
