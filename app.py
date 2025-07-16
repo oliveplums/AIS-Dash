@@ -183,10 +183,10 @@ if st.button("Fetch Data"):
 ##############Speed and Activity Summary#######################
         # Time difference between points
         diff=[]
-        for n in range(len(df['DateTime'])-1):
-            diff.append(df['DateTime'][n+1]-df['DateTime'][n])
+        for n in range(len(df_ais['DateTime'])-1):
+            diff.append(df_ais['DateTime'][n+1]-df_ais['DateTime'][n])
         diff=[timedelta(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0, hours=0, weeks=0)] + diff
-        df['Diff'] = diff
+        df_ais['Diff'] = diff
 
         
         # Distance in nautical miles (speed in knots * hours)
@@ -275,4 +275,55 @@ if st.button("Fetch Data"):
         st.subheader("🗺️ Vessel Route and Risk Map")
         st.plotly_chart(fig, use_container_width=True)
 
+########### Speed Timeline#########################
+        # Convert 'DateTime' column to datetime format
+        df['DateTime'] = pd.to_datetime(df['DateTime'])
+        
+        # Sort the DataFrame by 'DateTime'
+        df = df.sort_values('DateTime')
+        
+        # Define the color palette
+        akzo_primary = [(51/255, 102/255, 0/255), (0/255, 255/255, 0/255), (255/255, 255/255, 0/255), (255/255, 153/255, 0/255), (255/255, 0/255, 0/255),(0/255, 81/255, 146/255)]
+        
+        # Define the order of the 'Fouling Challenge' categories
+        fouling_challenge_order = ['VL', 'L', 'M', 'H', 'VH']
+        
+        # Create a dictionary that maps each category to a color
+        color_map = dict(zip(fouling_challenge_order, akzo_primary[:5]))
+        
+        # Filter DataFrame to only include rows where 'Speed' is less than or equal to 30
+        dfmap = df[df['speed'] <= 30]
+        
+        # Initialize figure
+        fig = go.Figure()
+        
+        # Plot each row as a separate line
+        for i in range(1, len(df)):
+            risk_value = df['risk'].iloc[i]
+            
+            # Convert RGB tuple to 'rgb(r, g, b)' string
+            color = color_map.get(risk_value, (0, 0, 0))  # Default to black if missing
+            color = f'rgb({int(color[0]*255)}, {int(color[1]*255)}, {int(color[2]*255)})'
+            
+            fig.add_trace(go.Scatter(
+                x=df['DateTime'].iloc[i-1:i+1], 
+                y=df['speed'].iloc[i-1:i+1],
+                mode='lines',
+                line=dict(color=color, width=2),
+                name=str(risk_value)
+            ))
+        
+        
+        
+        # Customize plot title and labels
+        fig.update_layout(title='Speed Timeline',
+            yaxis_title='Speed / knots',
+            xaxis_tickformat='%b %Y',template='plotly_white', autosize=False, bargap=0.30,
+                          font=dict(color='grey',size=14),
+                           showlegend=False,# Set the font color to black and size to 12
+                          width=1000,  # Set the width of the figure to make the graph longer
+                          height=300   # Optionally set the height of the figure
+        )
+        st.subheader("Speed Timeline")
+        st.plotly_chart(fig, use_container_width=True)
 
