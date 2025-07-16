@@ -116,61 +116,67 @@ if st.button("Fetch Data"):
                 st.subheader("AIS Positions")
                 st.dataframe(df_ais)
 
+                # ---- SQLite vessel info ----
+                try:
+                    imo_for_db = imo_list[0]
+                    with sqlite3.connect("my_sqlite.db") as cnn:
+                        query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = {imo_for_db};"
+                        dfVesselInfo = pd.read_sql(query, cnn)
+
+                    if not dfVesselInfo.empty:
+                        st.subheader("📄 Vessel Information from Local DB")
+                        st.dataframe(dfVesselInfo)
+                    else:
+                        st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
+                except Exception as e:
+                    st.error(f"SQLite DB error: {e}")
+
+                # ---- LME Shapefile and Excel Info ----
+                try:
+                    LMEPolygon = "LMEPolygon1/LMEs66.shp"
+                    LMEPolygon_path = os.path.abspath(LMEPolygon)
+                    LME_sf = gpd.read_file(LMEPolygon_path)
+                    LEM_gsd_new = LME_sf.to_crs(epsg=4326)
+
+                    LME = pd.read_excel("LME values.xlsx")
+                    LME.columns = LME.iloc[0]
+                    LME = LME[1:].reset_index(drop=True)
+
+                    AIS_long_lat = df_ais[['longitude', 'latitude']]
+                    AIS_long_lat.columns = ['Longitude', 'Latitude']
+                    points_cords = [Point(xy) for xy in zip(AIS_long_lat.Longitude, AIS_long_lat.Latitude)]
+                    Route = gpd.GeoDataFrame(AIS_long_lat, geometry=points_cords, crs='EPSG:4326')
+
+                    Route = gpd.sjoin(Route, LEM_gsd_new[['geometry', 'LME_NUMBER']], how="left", predicate='within')
+                    Route['ID'] = Route['LME_NUMBER']
+                    Route['Datetime'] = df_ais['DateTime']
+                    result = pd.merge(Route, LME, how="left", on="ID")
+                    result['months'] = result['Datetime'].apply(lambda x: x.strftime('%b'))
+
+                    # Risk calculation
+                    b = [0] * len(Route['geometry'])
+                    Winter = ['Nov', 'Dec', 'Jan']
+                    Spring = ['Feb', 'Mar', 'Apr']
+                    Summer = ['May', 'Jun', 'Jul']
+                    Autumn = ['Aug', 'Sep', 'Oct']
+
+                    for i in range(len(result['geometry'])):
+                        if result['months'][i] in Winter:
+                            b[i] = result['Nov - Jan'][i]
+                        elif result['months'][i] in Spring:
+                            b[i] = result['Feb - Apr'][i]
+                        elif result['months'][i] in Summer:
+                            b[i] = result['May - Jul'][i]
+                        else:
+                            b[i] = result['Aug - Oct'][i]
+
+                    df_ais['risk'] = b
+                    st.subheader("📊 AIS with Risk Scores")
+                    st.dataframe(df_ais)
+
+                except Exception as e:
+                    st.error(f"Geospatial or Excel error: {e}")
         except requests.exceptions.HTTPError as e:
             st.error(f"HTTP error: {e}")
         except Exception as e:
             st.error(f"Unexpected error during API call: {e}")
-
-    # ---- SQLite vessel info ----
-    try:
-        imo_for_db = imo_list[0]
-        with sqlite3.connect("my_sqlite.db") as cnn:
-            query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = {imo_for_db};"
-            dfVesselInfo = pd.read_sql(query, cnn)
-
-        if not dfVesselInfo.empty:
-            st.subheader("📄 Vessel Information from Local DB")
-            st.dataframe(dfVesselInfo)
-        else:
-            st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
-
-    except Exception as e:
-        st.error(f"SQLite DB error: {e}")
-
-# ---- LME Shapefile and Excel Info ----
-LMEPolygon = "LMEPolygon1/LMEs66.shp"  # Use forward slashes or raw string
-LMEPolygon_path = os.path.abspath(LMEPolygon)
-LME_sf = gpd.read_file(LMEPolygon_path)
-LEM_gsd_new = LME_sf.to_crs(epsg=4326)
-
-LME = pd.read_excel("LME values.xlsx")
-LME.columns = LME.iloc[0]
-LME = LME[1:].reset_index(drop=True)
-
-AIS_long_lat = df_ais[['longitude','latitude']]
-AIS_long_lat.columns = ['Longitude','Latitude']
-points_cords = [Point(xy) for xy in zip(AIS_long_lat.Longitude,AIS_long_lat.Latitude)]
-Route = gpd.GeoDataFrame(AIS_long_lat, geometry=points_cords,crs='EPSG:4326')
-
-Route = gpd.sjoin(Route, LEM_gsd_new[['geometry', 'LME_NUMBER']], how="left", predicate='within')
-Route['ID'] = Route['LME_NUMBER']
-Route['Datetime'] = df_ais['DateTime']
-result = pd.merge(Route, LME,how="left",on="ID")
-result['months'] = result['Datetime'].apply(lambda x:x.strftime('%b'))
-b = [0]*len(Route['geometry'])
-Winter = ['Nov','Dec','Jan']
-Spring = ['Feb','Mar','Apr']
-Summer = ['May','Jun','Jul']
-Autumn = ['Aug','Sep','Oct']
-for i in range(len(result['geometry'])):
-    if result['months'][i] in Winter:
-        b[i] = result['Nov - Jan'][i]
-    elif result['months'][i] in Spring:
-        b[i] = result['Feb - Apr'][i]
-    elif result['months'][i] in Summer:
-        b[i] = result['May - Jul'][i]
-    else:
-        b[i] = result['Aug - Oct'][i]
-df_ais['risk'] = b
-st.dataframe(df_ais)
-
