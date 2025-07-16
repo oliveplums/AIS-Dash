@@ -270,7 +270,7 @@ if st.button("Fetch Data"):
         
         # Display the map in Streamlit
         st.subheader("🗺️ Vessel Route and Risk Map")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="map")
 
 ########### Speed Timeline#########################
         # Convert 'DateTime' column to datetime format
@@ -322,7 +322,7 @@ if st.button("Fetch Data"):
                           height=300   # Optionally set the height of the figure
         )
         st.subheader("Speed Timeline")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="speed timeline")
 
 ########### Speed Histogram #########################
 
@@ -348,7 +348,7 @@ if st.button("Fetch Data"):
 
 
         st.subheader("Speed Histogram")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="speed hist")
 
 
 ########## Fouling Challenge #############
@@ -392,7 +392,7 @@ if st.button("Fetch Data"):
         )
 
         st.subheader("Fouling Challenge")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="fc")
 ########## Static Period Caluclations #############
         # Step 1: Mark periods of inactivity
         df['inactive'] = df['speed'] < 3
@@ -475,7 +475,7 @@ if st.button("Fetch Data"):
         )
 
         st.subheader("🗺️ Vessel Static Map")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="static map")
 
 ########## Static Period graph #############
 
@@ -512,7 +512,7 @@ if st.button("Fetch Data"):
         )
 
         st.subheader("STATIONARY PERIODS")
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, use_container_width=True,key="staticdays")
 
 ########## STATIC CHART ########
         import streamlit as st
