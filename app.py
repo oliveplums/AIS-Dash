@@ -93,13 +93,19 @@ sixhourly = st.selectbox("6-Hourly data?", options=["true", "false"], index=0)
 
 if st.button("Fetch Data"):
     with st.spinner("Fetching voyage and AIS data..."):
-                try:
+        try:
             imo_list = list(map(int, imo_input.split(',')))
             voyage_data = get_voyage_history(username, password, imo_list, start_date, end_date)
             timestamp_changes = detect_mmsi_changes(voyage_data, end_date.isoformat())
 
-            ais_df = fetch_and_combine_ais(username, password, timestamp_changes, start_date.isoformat(), end_date.isoformat(), sixhourly)
-            
+            ais_df = fetch_and_combine_ais(
+                username, password,
+                timestamp_changes,
+                start_date.isoformat(),
+                end_date.isoformat(),
+                sixhourly
+            )
+
             if ais_df.empty:
                 st.warning("No AIS position data found for the selected criteria.")
             else:
@@ -112,18 +118,18 @@ if st.button("Fetch Data"):
         except Exception as e:
             st.error(f"Unexpected error during API call: {e}")
 
-        # ---- SQLite vessel info ----
-        try:
-            imo_for_db = imo_list[0]  # Use first IMO for SQLite query
-            with sqlite3.connect("my_sqlite.db") as cnn:
-                query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = '{imo_for_db}';"
-                dfVesselInfo = pd.read_sql(query, cnn)
+    # ---- SQLite vessel info ----
+    try:
+        imo_for_db = imo_list[0]
+        with sqlite3.connect("my_sqlite.db") as cnn:
+            query = f"SELECT * FROM vesselInfo WHERE LRIMOShipNo = {imo_for_db};"
+            dfVesselInfo = pd.read_sql(query, cnn)
 
-            if not dfVesselInfo.empty:
-                st.subheader("📄 Vessel Information from Local DB")
-                st.dataframe(dfVesselInfo)
-            else:
-                st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
+        if not dfVesselInfo.empty:
+            st.subheader("📄 Vessel Information from Local DB")
+            st.dataframe(dfVesselInfo)
+        else:
+            st.warning(f"No vessel info found in local DB for IMO {imo_for_db}")
 
-        except Exception as e:
-            st.error(f"SQLite DB error: {e}")
+    except Exception as e:
+        st.error(f"SQLite DB error: {e}")
