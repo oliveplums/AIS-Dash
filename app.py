@@ -102,13 +102,19 @@ if st.button("Fetch Data"):
             voyage_data = get_voyage_history(username, password, imo_list, start_date, end_date)
             timestamp_changes = detect_mmsi_changes(voyage_data, end_date.isoformat())
 
-            df = fetch_and_combine_ais(
+            df_ais = fetch_and_combine_ais(
                 username, password,
                 timestamp_changes,
                 start_date.isoformat(),
                 end_date.isoformat(),
                 sixhourly
             )
+            if df_ais.empty:
+                st.warning("No AIS position data found for the selected criteria.")
+            else:
+                st.success("AIS Data fetched successfully!")
+                st.subheader("AIS Positions")
+                st.dataframe(df_ais)
 
         except requests.exceptions.HTTPError as e:
             st.error(f"HTTP error: {e}")
@@ -141,14 +147,14 @@ LME = pd.read_excel("LME values.xlsx")
 LME.columns = LME.iloc[0]
 LME = LME[1:].reset_index(drop=True)
 
-AIS_long_lat = df[['longitude','latitude']]
+AIS_long_lat = df_ais[['longitude','latitude']]
 AIS_long_lat.columns = ['Longitude','Latitude']
 points_cords = [Point(xy) for xy in zip(AIS_long_lat.Longitude,AIS_long_lat.Latitude)]
 Route = gpd.GeoDataFrame(AIS_long_lat, geometry=points_cords,crs='EPSG:4326')
 
 Route = gpd.sjoin(Route, LEM_gsd_new[['geometry', 'LME_NUMBER']], how="left", predicate='within')
 Route['ID'] = Route['LME_NUMBER']
-Route['Datetime'] = df['DateTime']
+Route['Datetime'] = df_ais['DateTime']
 result = pd.merge(Route, LME,how="left",on="ID")
 result['months'] = result['Datetime'].apply(lambda x:x.strftime('%b'))
 b = [0]*len(Route['geometry'])
@@ -165,12 +171,6 @@ for i in range(len(result['geometry'])):
         b[i] = result['May - Jul'][i]
     else:
         b[i] = result['Aug - Oct'][i]
-df['risk'] = b
-
-if df.empty:
-    st.warning("No AIS position data found for the selected criteria.")
-else:
-    st.success("AIS Data fetched successfully!")
-    st.subheader("AIS Positions")
-    st.dataframe(df)
+df_ais['risk'] = b
+st.dataframe(df_ais)
 
