@@ -8,7 +8,7 @@ import sqlite3
 from datetime import datetime
 from typing import Sequence
 from shapely.geometry import Point
-
+from math import radians, cos, sin, asin, sqrt
 import plotly.express as px
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -84,6 +84,47 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
     df1 = df_cleaned[df_cleaned["speed"] < 24].reset_index(drop=True)
     df = df1.drop_duplicates(subset='DateTime')
     df = df.sort_values('DateTime').reset_index(drop=True)
+
+    def haversine(lon1, lat1, lon2, lat2):
+        # convert decimal degrees to radians 
+        lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+        # haversine formula 
+        dlon = lon2 - lon1 
+        dlat = lat2 - lat1 
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a)) 
+        r = 3440.065  # Radius of earth in nautical miles
+        return c * r
+
+    # Sort by DateTime
+    df_cleaned = df_cleaned.sort_values('DateTime').reset_index(drop=True)
+    
+    # Calculate distances between points
+    distances = [0]  # first point has no previous
+    for i in range(1, len(df_cleaned)):
+        lon1, lat1 = df_cleaned.loc[i-1, ['longitude', 'latitude']]
+        lon2, lat2 = df_cleaned.loc[i, ['longitude', 'latitude']]
+        dist = haversine(lon1, lat1, lon2, lat2)
+        distances.append(dist)
+    df_cleaned['dist_nm'] = distances
+
+    # Extract month abbreviation for grouping
+    df_cleaned['month'] = df_cleaned['DateTime'].dt.strftime('%b')
+
+    # Group by month and calculate summary metrics
+    summary = df_cleaned.groupby('month').apply(lambda x: pd.Series({
+        'Sea Miles': x['dist_nm'].sum(),
+        'Pct > 3 knots': (x['speed'] > 3).mean() * 100,
+        'Most Common Speed': x['speed'].mode().iloc[0] if not x['speed'].mode().empty else np.nan
+    })).reset_index()
+
+    # Add total sea miles
+    total_sea_miles = df_cleaned['dist_nm'].sum()
+
+    st.subheader("📊 Monthly AIS Summary")
+    st.dataframe(summary)
+
+    st.write(f"**Total Sea Miles Traveled:** {total_sea_miles:.2f} nm")
 
     return df
 
