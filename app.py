@@ -9,6 +9,9 @@ import geopandas as gpd
 import plotly.express as px
 import os 
 from shapely.geometry import Point
+import plotly.graph_objects as go
+import numpy as np
+import math
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
@@ -177,10 +180,14 @@ if st.button("Fetch Data"):
             st.error(f"HTTP error: {e}")
         except Exception as e:
             st.error(f"Unexpected error during API call: {e}")
-
+##############Speed and Activity Summary#######################
         # Time difference between points
-        diff = [timedelta(0)] + list(df_ais['DateTime'].diff().iloc[1:])
-        df_ais['Diff'] = diff
+        diff=[]
+        for n in range(len(df['DateTime'])-1):
+            diff.append(df['DateTime'][n+1]-df['DateTime'][n])
+        diff=[timedelta(days=0, seconds=0, microseconds=0, milliseconds=0, minutes=0, hours=0, weeks=0)] + diff
+        df['Diff'] = diff
+
         
         # Distance in nautical miles (speed in knots * hours)
         df_ais['distance'] = df_ais['speed'] * 0.0002777778 * df_ais['Diff'].dt.total_seconds()
@@ -209,4 +216,63 @@ if st.button("Fetch Data"):
         
         st.subheader("📈 Speed and Activity Summary")
         st.table(summary_df)
+
+#####MAP###############
+
+        # Define colors for each risk level
+        colours = {'null': 'grey', 'VL': 'darkgreen', 'L': '#37ff30', 'M': 'yellow', 'H': 'orange', 'VH': 'red'}
+        
+        # Make sure you're using the correct dataframe
+        df = df_ais.copy()
+        
+        # Handle potential missing values in 'risk'
+        df['risk'] = df['risk'].fillna('null')
+        
+        # Compute the bounds of the data
+        lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
+        lat_min, lat_max = df['latitude'].min(), df['latitude'].max()
+        
+        # Calculate center of map
+        center_lon = df['longitude'].mean()
+        center_lat = df['latitude'].mean()
+        
+        # Define zoom level calculation
+        def calculate_zoom_level(lon_range, lat_range):
+            max_range = max(lon_range, lat_range)
+            zoom = -math.log2(max_range / 360)
+            return max(min(zoom, 4), 2)
+        
+        # Calculate zoom based on geographic range
+        lon_range = lon_max - lon_min
+        lat_range = lat_max - lat_min
+        zoom = calculate_zoom_level(lon_range, lat_range)
+        
+        # Create the Scattermapbox figure
+        fig = go.Figure(go.Scattermapbox(
+            lon=df['longitude'],
+            lat=df['latitude'],
+            mode='markers+lines',
+            marker={
+                'size': 6,
+                'color': [colours.get(label, 'grey') for label in df['risk']],
+            },
+            text=df['DateTime'].astype(str),
+            hoverinfo='text'
+        ))
+        
+        # Set map layout
+        fig.update_layout(
+            mapbox={
+                'style': "open-street-map",
+                'center': {'lon': center_lon, 'lat': center_lat},
+                'zoom': zoom,
+            },
+            margin={"r":0,"t":0,"l":0,"b":0},
+            showlegend=False
+        )
+        
+        # Display the map in Streamlit
+        st.subheader("🗺️ Vessel Route and Risk Map")
+        st.plotly_chart(fig, use_container_width=True)
+
 
