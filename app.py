@@ -348,7 +348,7 @@ if st.button("Fetch Data"):
 
 
         st.subheader("Speed Histogram")
-        st.plotly_chart(fig, use_container_width=True,key="speed hist")
+        st.plotly_chart(histfig, use_container_width=True,key="speed hist")
 
 
 ########## Fouling Challenge #############
@@ -493,7 +493,7 @@ if st.button("Fetch Data"):
         
         # Add value labels above each bar
         for i, val in enumerate(y):
-            fig.add_annotation(
+            fis.add_annotation(
                 x=x[i],
                 y=val,
                 text=f'{int(val)}',
@@ -503,7 +503,7 @@ if st.button("Fetch Data"):
             )
         
         # Customize plot title and labels
-        fig.update_layout(title="STATIONARY PERIODS", xaxis_title='Days At Rest', 
+        fis.update_layout(title="STATIONARY PERIODS", xaxis_title='Days At Rest', 
                           template='plotly_white', autosize=False, bargap=0.30,
                           yaxis_title="Frequency",
                           font=dict(color='black',size=14),  # Set the font color to black and size to 12
@@ -512,7 +512,7 @@ if st.button("Fetch Data"):
         )
 
         st.subheader("STATIONARY PERIODS")
-        st.plotly_chart(fig, use_container_width=True,key="staticdays")
+        st.plotly_chart(fis, use_container_width=True, key="staticdays")
 
 ########## STATIC CHART ########
         import streamlit as st
