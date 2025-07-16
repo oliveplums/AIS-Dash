@@ -172,7 +172,7 @@ if st.button("Fetch Data"):
             with st.spinner("Querying local vessel info database..."):
                 try:
                     imo_number = imo_list[0]
-                    conn = sqlite3.connect(r"my_sqlite.db")
+                    conn = sqlite3.connect("AIS-Dash/my_sqlite.db")
                     query = "SELECT * FROM vesselInfo WHERE LRIMOShipNo = ?"
                     dfVesselInfo = pd.read_sql(query, conn, params=(imo_number,))
                     conn.close()
