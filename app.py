@@ -172,7 +172,7 @@ if st.button("Fetch Data"):
             with st.spinner("Querying local vessel info database..."):
                 try:
                     imo_number = imo_list[0]
-                    conn = sqlite3.connect(r"C:\Users\palomboo\OneDrive - AkzoNobel\Template Automation Report\Vessel Info\my_sqlite.db")
+                    conn = sqlite3.connect(r"my_sqlite.db")
                     query = "SELECT * FROM vesselInfo WHERE LRIMOShipNo = ?"
                     dfVesselInfo = pd.read_sql(query, conn, params=(imo_number,))
                     conn.close()
@@ -190,7 +190,7 @@ if st.button("Fetch Data"):
                 st.subheader("🌍 LME Polygon and Info")
 
                 # Load shapefile
-                LMEPolygon = r"C:\Users\palomboo\OneDrive - AkzoNobel\Template Automation Report\Intertrac Advance\LMEPolygon1\LMEs66.shp"
+                LMEPolygon = "LMEPolygon1\LMEs66.shp"
                 LME_sf = gpd.read_file(LMEPolygon).to_crs(epsg=4326)
 
                 st.write("Loaded LME Polygons:")
