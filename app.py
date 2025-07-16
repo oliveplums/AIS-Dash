@@ -223,7 +223,7 @@ if st.button("Fetch Data"):
         df = df_ais.copy()
         
         # Handle potential missing values in 'risk'
-        df['risk'] = df['risk'].fillna('null')
+        df['risk'] = df['risk'].fillna('VL')
         
         # Compute the bounds of the data
         lon_min, lon_max = df['longitude'].min(), df['longitude'].max()
@@ -366,14 +366,14 @@ if st.button("Fetch Data"):
         colours = {'null':'grey','VL': 'darkgreen', 'L': '#37ff30', 'M': 'yellow', 'H': 'orange', 'VH': 'red'}
         
         # Create the bar plot with custom colors and outlined bars
-        figf = go.Figure(data=[go.Bar(x=x, y=y, 
+        fig = go.Figure(data=[go.Bar(x=x, y=y, 
                                      marker_color=[colours[label] for label in x], 
                                      marker_line_color='black',  # Add black outline
                                      marker_line_width=1)])  # Adjust the width of the outline if needed
         
         # Add value labels above each bar
         for i, val in enumerate(y):
-            figf.add_annotation(
+            fig.add_annotation(
                 x=x[i],
                 y=val,
                 text=f'{int(val)}',
@@ -383,7 +383,7 @@ if st.button("Fetch Data"):
             )
         
         # Customize plot title and labels
-        figf.update_layout(title="FOULING CHALLENGE", xaxis_title='Fouling Challenge', 
+        fig.update_layout(title="FOULING CHALLENGE", xaxis_title='Fouling Challenge', 
                           template='plotly_white', autosize=False, bargap=0.30,
                           yaxis_title="Percentage (%)",
                           font=dict(color='grey',size=14),  # Set the font color to black and size to 12
@@ -393,4 +393,125 @@ if st.button("Fetch Data"):
 
         st.subheader("Fouling Challenge")
         st.plotly_chart(fig, use_container_width=True)
+########## Static Period Caluclations #############
+        # Step 1: Mark periods of inactivity
+        df['inactive'] = df['speed'] < 3
+        
+        # Step 2: Shift the 'inactive' column to detect changes
+        df['inactive_shifted'] = df['inactive'].shift(1, fill_value=False)
+        
+        # Step 3: Identify start and end of inactive periods
+        df['period_start'] = (~df['inactive_shifted'] & df['inactive'])
+        df['period_end'] = (df['inactive_shifted'] & ~df['inactive'])
+        
+        # Step 4: Initialize variables to track inactive periods
+        inactive_periods = []
+        period_start = None
+        
+        # Step 5: Loop through the DataFrame to extract periods of inactivity
+        for i, row in df.iterrows():
+            if row['period_start']:
+                period_start = row['DateTime']
+            if row['period_end'] and period_start is not None:
+                period_end = row['DateTime']
+                # Calculate the duration in days
+                days = (pd.to_datetime(period_end) - pd.to_datetime(period_start)).days
+                # Extract the fouling challenge at the end of the period
+                fouling_challenge = row['risk']
+                # Extract longitude and latitude
+                longitude = row['longitude']
+                latitude = row['latitude']
+                inactive_periods.append((period_start, period_end, days, fouling_challenge, longitude, latitude))
+                period_start = None
+        
+        # Handle case where a period is still ongoing
+        if period_start is not None:
+            period_end = df['DateTime'].iloc[-1]
+            days = (pd.to_datetime(period_end) - pd.to_datetime(period_start)).days
+            fouling_challenge = df['risk'].iloc[-1]
+            longitude = df['longitude'].iloc[-1]
+            latitude = df['latitude'].iloc[-1]
+            inactive_periods.append((period_start, period_end, days, fouling_challenge, longitude, latitude))
+        
+        # Step 6: Create a DataFrame for the inactive periods
+        columns = ['Begin', 'End', 'Days', 'Fouling Challenge', 'Longitude', 'Latitude']
+        inactive_periods_df = pd.DataFrame(inactive_periods, columns=columns)
 
+########## Static Period Map #############
+
+        inactive_periods_DF2 = inactive_periods_df[inactive_periods_df['Days'] >= 14]
+        
+        # Define colors for each risk level
+        colours = {'null': 'grey', 'VL': 'darkgreen', 'L': '#37ff30', 'M': 'yellow', 'H': 'orange', 'VH': 'red'}
+        
+        # Create text labels for each point
+        text_labels = [
+            f"Start: {row['Begin'].date()} Days: {row['Days']}"
+            for _, row in inactive_periods_DF2.iterrows()
+        ]
+        
+        # Create the Scattermapbox figure
+        fig = go.Figure(go.Scattermapbox(
+            lon=inactive_periods_DF2['Longitude'],
+            lat=inactive_periods_DF2['Latitude'],
+            marker={
+                'size': 10,
+                'color': [colours[label] for label in inactive_periods_DF2['Fouling Challenge']],
+               'opacity': 0.8
+            },
+            text=text_labels
+        ))
+        
+        # Update layout with map style, center, zoom, and dimensions
+        fig.update_layout(
+            mapbox = {
+                'style': "open-street-map",
+                'center': {'lon':df['longitude'].mean(), 'lat':df['latitude'].mean()},
+                'zoom': 1
+            },
+            showlegend = False,
+            #width = 726*1.28,  # Set the width of the figure
+            #height = 382*1.52  # Set the height of the figure
+        )
+
+        st.subheader("🗺️ Vessel Static Map")
+        st.plotly_chart(fig, use_container_width=True)
+
+########## Static Period graph #############
+
+        daycount=np.asarray(pd.cut(inactive_periods_df['Days'].values, [0,13, 21, 30, np.inf], include_lowest=True).value_counts())
+        x=['1-13','14-21', '22-30', '>30']
+        y=[daycount[0], daycount[1], daycount[2], daycount[3]]
+        
+        # Create the bar plot with custom colors and outlined bars
+        fis = go.Figure(data=[go.Bar(x=x, y=y, 
+                                     marker_color=['white', 'grey', 'blue', 'darkblue'],
+                                     marker_line_color='black',  # Add black outline
+                                     marker_line_width=1)])  # Adjust the width of the outline if needed
+        
+        
+        
+        # Add value labels above each bar
+        for i, val in enumerate(y):
+            fig.add_annotation(
+                x=x[i],
+                y=val,
+                text=f'{int(val)}',
+                showarrow=False,
+                font=dict(color='black', size=14),
+                yshift=10
+            )
+        
+        # Customize plot title and labels
+        fig.update_layout(title="STATIONARY PERIODS", xaxis_title='Days At Rest', 
+                          template='plotly_white', autosize=False, bargap=0.30,
+                          yaxis_title="Frequency",
+                          font=dict(color='black',size=14),  # Set the font color to black and size to 12
+                          width=500,  # Set the width of the figure to make the graph longer
+                          height=300   # Optionally set the height of the figure
+        )
+
+        st.subheader("STATIONARY PERIODS")
+        st.plotly_chart(fig, use_container_width=True)
+
+########## STATIC CHART ########
