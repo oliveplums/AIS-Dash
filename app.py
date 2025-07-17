@@ -182,7 +182,7 @@ if st.button("Fetch Data"):
                     st.error(f"Geospatial or Excel error: {e}")
         except Exception as e:
             st.error("Unexpected error during API call.")
-            st.text(traceback.format_exc())
+
             
 ##############Speed and Activity Summary#######################
         # Time difference between points
