@@ -248,12 +248,12 @@ if st.button("Fetch Data"):
         
         # Create the Scattermapbox figure
         fig = go.Figure(go.Scattermapbox(
-            lon=df['Longitude'],
-            lat=df['Latitude'],
+            lon=df['longitude'],
+            lat=df['latitude'],
             mode='markers',
             marker={
                 'size': 6,
-                'color': [colours.get(label, 'grey') for label in df['Fouling Challenge']],
+                'color': [colours.get(label, 'grey') for label in df['risk']],
             },
             # Add DateTime to hover text
             text=[
