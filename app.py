@@ -182,7 +182,9 @@ if st.button("Fetch Data"):
             st.error(f"Unexpected error during API call: {e}")
 ##############Speed and Activity Summary#######################
         # Time difference between points
-
+        
+        df_ais = df_ais[df_ais["speed"] < 30]
+        
         df_ais['Diff'] = df_ais['DateTime'].diff().fillna(pd.Timedelta(0))
 
         
@@ -246,16 +248,21 @@ if st.button("Fetch Data"):
         
         # Create the Scattermapbox figure
         fig = go.Figure(go.Scattermapbox(
-            lon=df['longitude'],
-            lat=df['latitude'],
-            mode='markers+lines',
+            lon=dfmap['Longitude'],
+            lat=dfmap['Latitude'],
+            mode='markers',
             marker={
                 'size': 6,
-                'color': [colours.get(label, 'grey') for label in df['risk']],
+                'color': [colours.get(label, 'grey') for label in dfmap['Fouling Challenge']],
             },
-            text=df['DateTime'].astype(str),
-            hoverinfo='text'
+            # Add DateTime to hover text
+            text=[
+                f"{dt.strftime('%d %B %Y')}"
+                for dt in dfmap['DateTime']
+            ],
+            hoverinfo='text'  # ensures only the 'text' content shows on hover
         ))
+        
         
         # Set map layout
         fig.update_layout(
@@ -264,10 +271,9 @@ if st.button("Fetch Data"):
                 'center': {'lon': center_lon, 'lat': center_lat},
                 'zoom': zoom,
             },
-            margin={"r":0,"t":0,"l":0,"b":0},
             showlegend=False
         )
-        
+
         # Display the map in Streamlit
         st.subheader("🗺️ Vessel Route and Risk Map")
         st.plotly_chart(fig, use_container_width=True,key="map")
@@ -454,25 +460,28 @@ if st.button("Fetch Data"):
         fig = go.Figure(go.Scattermapbox(
             lon=inactive_periods_DF2['Longitude'],
             lat=inactive_periods_DF2['Latitude'],
+            mode='markers',
             marker={
                 'size': 10,
-                'color': [colours[label] for label in inactive_periods_DF2['Fouling Challenge']],
-               'opacity': 0.8
+                'color': [colours.get(label, 'grey') for label in dfmap['Fouling Challenge']],
+                'opacity': 0.8
             },
+            # Add DateTime to hover text
             text=text_labels
+
         ))
         
-        # Update layout with map style, center, zoom, and dimensions
+        
+        # Set map layout
         fig.update_layout(
-            mapbox = {
+            mapbox={
                 'style': "open-street-map",
-                'center': {'lon':df['longitude'].mean(), 'lat':df['latitude'].mean()},
-                'zoom': 1
+                'center': {'lon': inactive_periods_DF2['Longitude'].mean(), 'lat': inactive_periods_DF2['Latitude'].mean()},
+                'zoom': 2,
             },
-            showlegend = False,
-            #width = 726*1.28,  # Set the width of the figure
-            #height = 382*1.52  # Set the height of the figure
+            showlegend=False
         )
+
 
         st.subheader("🗺️ Vessel Static Map")
         st.plotly_chart(fig, use_container_width=True,key="static map")
