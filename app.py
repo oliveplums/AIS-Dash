@@ -105,18 +105,22 @@ if st.button("Fetch Data"):
             imo_list = list(map(int, imo_input.split(',')))
             voyage_data = get_voyage_history(username, password, imo_list, start_date, end_date)
             timestamp_changes = detect_mmsi_changes(voyage_data, end_date.isoformat())
-
-            df_ais = fetch_and_combine_ais(
-                username, password,
-                timestamp_changes,
-                start_date.isoformat(),
-                end_date.isoformat(),
-                sixhourly
-            )
-            if df_ais.empty:
-                st.warning("No AIS position data found for the selected criteria.")
+        
+            if not timestamp_changes or len(timestamp_changes[0]) < 3:
+                st.error("Unable to detect MMSI transitions – voyage data might be incomplete or invalid.")
             else:
-                st.success("AIS Data fetched successfully!")
+                df_ais = fetch_and_combine_ais(
+                    username, password,
+                    timestamp_changes,
+                    start_date.isoformat(),
+                    end_date.isoformat(),
+                    sixhourly
+                )
+        
+                if df_ais.empty:
+                    st.warning("No AIS position data found for the selected criteria.")
+                else:
+                    st.success("AIS Data fetched successfully!")
 
                 # ---- SQLite vessel info ----
                 try:
@@ -176,10 +180,10 @@ if st.button("Fetch Data"):
 
                 except Exception as e:
                     st.error(f"Geospatial or Excel error: {e}")
-        except requests.exceptions.HTTPError as e:
-            st.error(f"HTTP error: {e}")
         except Exception as e:
-            st.error(f"Unexpected error during API call: {e}")
+            st.error("Unexpected error during API call.")
+            st.text(traceback.format_exc())
+            
 ##############Speed and Activity Summary#######################
         # Time difference between points
         
