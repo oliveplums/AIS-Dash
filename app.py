@@ -529,10 +529,6 @@ if st.button("Fetch Data"):
         st.plotly_chart(fis, use_container_width=True, key="staticdays")
 
 ########## STATIC CHART ########
-        import streamlit as st
-        import pandas as pd
-        
-        # Assume inactive_periods_df is already defined and has the right data
         
         # Copy and format date columns
         bigstatics2 = inactive_periods_df.copy()
@@ -541,36 +537,6 @@ if st.button("Fetch Data"):
         
         # Select relevant columns
         bigstatics2 = bigstatics2[['Days', 'Fouling Challenge', 'Begin', 'End']]
-        
-        # Image HTML strings (make sure these images are in the 'static' folder or accessible path)
-        image_urls = {
-            'VH': r"""<img src="VH.png" width="50">""",
-            'H': r"""<img src="H.png" width="50">""",
-            'M': r"""<img src="M.png" width="50">""",
-            'L': r"""<img src="L.png" width="50">""",
-            'VL': r"""<img src="VL.png" width="50">"""
-        }
-        
-        image_urls2 = {
-            '14-21': r"""<img src="static1.png" width="30">""",
-            '22-30': r"""<img src="static2.png" width="30">""",
-            '>30': r"""<img src="static3.png" width="30">"""
-        }
-        
-        # Add images columns based on mappings
-        bigstatics2['Image'] = bigstatics2['Fouling Challenge'].map(image_urls)
-        bigstatics2['Image2'] = bigstatics2['Days'].apply(
-            lambda x: image_urls2['14-21'] if 14 <= x <= 21 else (
-                image_urls2['22-30'] if 22 <= x <= 30 else image_urls2['>30']
-            )
-        )
-        
-        # Rearrange and rename columns
-        bigstatics3 = bigstatics2[['Image2', 'Days', 'Image', 'Fouling Challenge', 'Begin', 'End']]
-        bigstatics3.columns = ['Days', '', 'Fouling Challenge', '', 'Begin', 'End']
-        
-        # Convert dataframe to HTML without escaping HTML tags
-        html_table = bigstatics3.to_html(escape=False, index=False)
-        
-        # Display in Streamlit with unsafe_allow_html=True
-        st.markdown(html_table, unsafe_allow_html=True)
+
+        st.subheader("Static Days")
+        st.dataframe(bigstatics2)
