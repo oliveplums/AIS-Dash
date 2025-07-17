@@ -82,9 +82,9 @@ def fetch_and_combine_ais(username, password, timestamp_changes, start, end, six
         df_combined = pd.concat([df_combined, df])
 
     df_cleaned = df_combined.drop_duplicates(subset='DateTime').reset_index(drop=True)
-    df = df_cleaned[df_cleaned["speed"] < 24]
+    df = df_cleaned[df_cleaned['speed'] < 30]
     df = df.drop_duplicates(subset='DateTime').sort_values('DateTime').reset_index(drop=True)
-    return df_cleaned
+    return df
 
 
 # --- Streamlit UI ---
@@ -183,7 +183,7 @@ if st.button("Fetch Data"):
 ##############Speed and Activity Summary#######################
         # Time difference between points
         
-        df_ais = df_ais[df_ais["speed"] < 30]
+        #df_ais = df_ais[df_ais["speed"] < 30]
         
         df_ais['Diff'] = df_ais['DateTime'].diff().fillna(pd.Timedelta(0))
 
