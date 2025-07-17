@@ -248,17 +248,17 @@ if st.button("Fetch Data"):
         
         # Create the Scattermapbox figure
         fig = go.Figure(go.Scattermapbox(
-            lon=dfmap['Longitude'],
-            lat=dfmap['Latitude'],
+            lon=df['Longitude'],
+            lat=df['Latitude'],
             mode='markers',
             marker={
                 'size': 6,
-                'color': [colours.get(label, 'grey') for label in dfmap['Fouling Challenge']],
+                'color': [colours.get(label, 'grey') for label in df['Fouling Challenge']],
             },
             # Add DateTime to hover text
             text=[
                 f"{dt.strftime('%d %B %Y')}"
-                for dt in dfmap['DateTime']
+                for dt in df['DateTime']
             ],
             hoverinfo='text'  # ensures only the 'text' content shows on hover
         ))
@@ -295,7 +295,7 @@ if st.button("Fetch Data"):
         color_map = dict(zip(fouling_challenge_order, akzo_primary[:5]))
         
         # Filter DataFrame to only include rows where 'Speed' is less than or equal to 30
-        dfmap = df[df['speed'] <= 30]
+        df = df[df['speed'] <= 30]
         
         # Initialize figure
         fig = go.Figure()
@@ -463,7 +463,7 @@ if st.button("Fetch Data"):
             mode='markers',
             marker={
                 'size': 10,
-                'color': [colours.get(label, 'grey') for label in dfmap['Fouling Challenge']],
+                'color': [colours.get(label, 'grey') for label in inactive_periods_DF2['Fouling Challenge']],
                 'opacity': 0.8
             },
             # Add DateTime to hover text
